@@ -19,20 +19,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21
+      # JDK 17 是 Android Gradle Plugin 官方建議
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: temurin
+          java-version: 17
+          cache: gradle
 
-      - name: Grant execute permission for gradlew
+      # Android SDK cache（非常重要）
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}
+
+      - name: Grant execute permission
         run: chmod +x ./gradlew
 
-      - name: Restore debug keystore
-        run: |
-          mkdir -p ~/.android
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
+      # 強制清掉壞掉的 debug keystore
+      - name: Reset debug keystore
+        run: rm -f ~/.android/debug.keystore
 
+      # Restore release keystore（只給 release 用）
       - name: Restore release keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > androidApp/upload-keystore.jks
@@ -43,45 +56,45 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
-      - name: Build debug APK
-        run: ./gradlew :androidApp:assembleDebug
+      - name: Clean project
+        run: ./gradlew clean
 
-      - name: Get vars
+      - name: Build Debug APK
+        run: ./gradlew :androidApp:assembleDebug --stacktrace
+
+      # 取得 timestamp version
+      - name: Get build info
         id: vars
         run: |
-          # Timestamp-based version (YYYY.MM.DD.HHMM format)
           echo "timestamp=$(date -u +'%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
 
-      - name: Create and push Git tag
+      # 建立 tag
+      - name: Create Git tag
         id: tag
         run: |
           TAG=debug-${{ steps.vars.outputs.timestamp }}
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
           git tag "$TAG"
           git push origin "$TAG"
 
-      - name: Create GitHub Release and Upload APK
+      # 發佈 Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "🚀 Debug Build ${{ steps.vars.outputs.timestamp }}"
           body: |
             ## Debug APK Release
-            
-            ### What's New
+
+            ### Commit
             ${{ github.event.head_commit.message }}
-            
-            ### Important Notes
-            - This is a **debug build** — not intended for production use
-            - Contains debug symbols and logging
-            - Performance may be slower than release builds
-            
-            ### Installation
-            Download the APK below and install on your Android device.
+
+            ⚠️ Debug build only  
+            - logging enabled
+            - not optimized
           files: androidApp/build/outputs/apk/debug/androidApp-debug.apk
-          draft: false
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
