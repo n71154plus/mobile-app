@@ -4,6 +4,7 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.data.LocalPlayerRepository
 import io.music_assistant.client.data.MainDataSource
+import io.music_assistant.client.deeplink.DeepLinkCoordinator
 import io.music_assistant.client.player.MediaPlayerController
 import io.music_assistant.client.player.sendspin.SendspinClientFactory
 import io.music_assistant.client.settings.SettingsRepository
@@ -35,13 +36,14 @@ val sharedModule = module {
     singleOf(::SendspinClientFactory)   // Factory for creating Sendspin clients
     singleOf(::LocalPlayerRepository)   // Optimistic local player state
     singleOf(::MainDataSource)          // Singleton - held by foreground service
+    singleOf(::DeepLinkCoordinator)
     viewModelOf(::ThemeViewModel)
     factory { ActionsViewModel(get(), get()) }
     factory { SettingsViewModel(get(), get()) }
     factory { AuthenticationViewModel(get(), get()) }
     factory { LibraryViewModel(get(), get(), get()) }
     factory { ItemDetailsViewModel(get(), get(), get()) }
-    factory { HomeScreenViewModel(get(), get(), get()) }
+    factory { HomeScreenViewModel(get(), get(), get(), get()) }
     factory { SearchViewModel(get(), get()) }
 }
 

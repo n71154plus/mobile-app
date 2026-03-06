@@ -1,6 +1,7 @@
 package io.music_assistant.client
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,6 +12,7 @@ import co.touchlab.kermit.Logger
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.auth.OAuthHandler
 import io.music_assistant.client.data.MainDataSource
+import io.music_assistant.client.deeplink.DeepLinkCoordinator
 import io.music_assistant.client.services.MainMediaPlaybackService
 import io.music_assistant.client.ui.compose.App
 import kotlinx.coroutines.delay
@@ -21,6 +23,7 @@ class MainActivity : ComponentActivity() {
 
     private val dataSource: MainDataSource by inject()
     private val authManager: AuthenticationManager by inject()
+    private val deepLinkCoordinator: DeepLinkCoordinator by inject()
     private val oauthHandler: OAuthHandler by lazy {
         OAuthHandler(this)
     }
@@ -34,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
         // Handle OAuth callback if launched from deep link
         handleOAuthCallback(intent)
+        handleExternalMediaDeepLink(intent)
 
         dataSource.isAnythingPlaying.asLiveData()
             .observe(this) {
@@ -56,6 +60,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleOAuthCallback(intent)
+        handleExternalMediaDeepLink(intent)
     }
 
     private fun handleOAuthCallback(intent: Intent?) {
@@ -75,4 +80,18 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun handleExternalMediaDeepLink(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (intent.action != Intent.ACTION_VIEW) return
+        if (isOAuthCallbackUri(data)) return
+
+        Logger.withTag("MainActivity").d("Queueing external media deep link: $data")
+        deepLinkCoordinator.submit(data.toString())
+    }
+
+    private fun isOAuthCallbackUri(uri: Uri): Boolean =
+        uri.scheme == "musicassistant" &&
+            uri.host == "auth" &&
+            uri.path == "/callback"
 }

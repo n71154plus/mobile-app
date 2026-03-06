@@ -99,6 +99,12 @@ fun HomeScreen(
     // Nested navigation backstack - hoisted to survive player view transitions
     val homeBackStack = rememberHomeNavBackStack()
 
+    LaunchedEffect(homeBackStack) {
+        viewModel.deepLinkItemTargets.collectLatest { target ->
+            homeBackStack.add(target)
+        }
+    }
+
     // Handle back when player view is shown
     BackHandler(enabled = showPlayersView) {
         showPlayersView = false

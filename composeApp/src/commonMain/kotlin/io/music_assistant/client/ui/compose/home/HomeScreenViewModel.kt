@@ -13,6 +13,8 @@ import io.music_assistant.client.data.model.client.Player
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.server.QueueOption
 import io.music_assistant.client.data.model.server.ServerMediaItem
+import io.music_assistant.client.deeplink.DeepLinkCoordinator
+import io.music_assistant.client.deeplink.ExternalUriParser
 import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
@@ -21,6 +23,7 @@ import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
+import io.music_assistant.client.ui.compose.home.nav.HomeNavScreen
 import io.music_assistant.client.utils.AuthProcessState
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.SessionState
@@ -42,6 +45,7 @@ class HomeScreenViewModel(
     private val apiClient: ServiceClient,
     private val dataSource: MainDataSource,
     private val settings: SettingsRepository,
+    private val deepLinkCoordinator: DeepLinkCoordinator,
 ) : ViewModel() {
 
     private val jobs = mutableListOf<Job>()
@@ -49,6 +53,8 @@ class HomeScreenViewModel(
     val serverUrl = apiClient.serverBaseUrl
     private val _links = MutableSharedFlow<String>()
     val links = _links.asSharedFlow()
+    private val _deepLinkItemTargets = MutableSharedFlow<HomeNavScreen.ItemDetails>()
+    val deepLinkItemTargets = _deepLinkItemTargets.asSharedFlow()
 
 
     private val _recommendationsState = MutableStateFlow(
@@ -135,6 +141,31 @@ class HomeScreenViewModel(
 
                     }
                 }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(apiClient.isReadyForCommands, deepLinkCoordinator.pendingUri) { isReady, pendingUri ->
+                isReady to pendingUri
+            }.collect { (isReady, pendingUri) ->
+                if (!isReady || pendingUri.isNullOrBlank()) {
+                    return@collect
+                }
+
+                val target = ExternalUriParser.parseItemTarget(pendingUri)
+                if (target != null) {
+                    _deepLinkItemTargets.emit(
+                        HomeNavScreen.ItemDetails(
+                            itemId = target.itemId,
+                            mediaType = target.mediaType,
+                            providerId = target.providerId
+                        )
+                    )
+                } else {
+                    Logger.w("Unsupported deep link URI: $pendingUri")
+                }
+
+                deepLinkCoordinator.clearPendingUri()
             }
         }
 

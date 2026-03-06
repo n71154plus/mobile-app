@@ -154,6 +154,7 @@ class ItemDetailsViewModel(
         val request = when (mediaType) {
             MediaType.ARTIST -> Request.Artist.get(itemId, providerId)
             MediaType.ALBUM -> Request.Album.get(itemId, providerId)
+            MediaType.TRACK -> Request.Track.get(itemId, providerId)
             MediaType.PLAYLIST -> Request.Playlist.get(itemId, providerId)
             MediaType.PODCAST -> Request.Podcast.get(itemId, providerId)
             MediaType.AUDIOBOOK -> Request.Audiobook.get(itemId, providerId)

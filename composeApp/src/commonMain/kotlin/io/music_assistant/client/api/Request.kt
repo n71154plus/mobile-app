@@ -418,6 +418,11 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
     data object Track {
 
+        fun get(
+            itemId: String,
+            providerInstanceIdOrDomain: String,
+        ) = Library.get("tracks", itemId, providerInstanceIdOrDomain)
+
         fun list(
             favorite: Boolean? = null,
             search: String? = null,
